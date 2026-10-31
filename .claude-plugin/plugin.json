@@ -1,0 +1,50 @@
+{
+  "name": "ripple",
+  "version": "0.1.0",
+  "description": "After every code change, tells you what it ripples into: stack and service contracts, security, reliability, efficiency, scalability and cost multipliers. Interactive pane, team awareness ledger.",
+  "author": { "name": "Owais Khan" },
+  "license": "MIT",
+  "keywords": ["review", "cost", "security", "scalability", "architecture"],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "mode": {
+      "type": "string",
+      "title": "When Ripple reviews",
+      "description": "smart: after a turn whose changes look risky or sizeable; always: after every turn that changed code; manual: only on /ripple check",
+      "default": "smart",
+      "options": ["smart", "always", "manual"]
+    },
+    "sensitivity": {
+      "type": "string",
+      "title": "Smart-mode sensitivity",
+      "description": "How eagerly smart mode calls the reviewer: relaxed, balanced or eager",
+      "default": "balanced",
+      "options": ["relaxed", "balanced", "eager"]
+    },
+    "reviewer": {
+      "type": "string",
+      "title": "Who reviews",
+      "description": "lean: a separate, cheaper model reads a compact diff plus your last ask (fewest tokens); session: a fork of this whole conversation on your session model (most context, re-reads the transcript from prompt cache)",
+      "default": "lean",
+      "options": ["session", "lean"]
+    },
+    "reviewModel": {
+      "type": "string",
+      "title": "Model for lean reviews and /ripple check",
+      "description": "Alias or model id: sonnet (balanced) or haiku (cheapest)",
+      "default": "sonnet"
+    },
+    "ledgerPath": {
+      "type": "string",
+      "title": "Awareness ledger file",
+      "description": "Where acknowledged ripples and the scale profile are kept, relative to the project root. Commit it so the team shares awareness. Empty keeps it private to you.",
+      "default": ".ripple/ledger.json"
+    },
+    "autoOpen": {
+      "type": "boolean",
+      "title": "Open the pane when new ripples arrive",
+      "description": "Off: only the band above the prompt and a toast announce them",
+      "default": true
+    }
+  }
+}

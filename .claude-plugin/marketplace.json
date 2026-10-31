@@ -1,0 +1,6 @@
+{
+  "name": "ripple",
+  "owner": { "name": "Owais Khan" },
+  "description": "Ripple: see what every code change ripples into (cost, security, reliability, efficiency, scale, stack).",
+  "plugins": [{ "name": "ripple", "source": "./" }]
+}

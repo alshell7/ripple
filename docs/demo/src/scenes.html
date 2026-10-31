@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ripple demo scenes</title>
+<!--
+  The README's animated demos. Each scene is a pure function of time, so
+  render.mjs can step through it frame by frame. Open with ?scene=catch|decide|fix|quiet
+  to watch one play in a browser.
+-->
+<style>
+:root {
+  --bg: #FAF9F5; --line: #E8E5DC; --line2: #DAD6CB; --ink: #262624; --ink2: #6F6D66; --ink3: #A3A199;
+  --accent: #C96442; --wave: #2B7BD0; --act: #E24B4A; --watch: #EF9F27; --fyi: #378ADD; --ok: #1D9E75;
+  --mono: "SF Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 960px; height: 600px; overflow: hidden; }
+body {
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Segoe UI", sans-serif;
+  color: var(--ink); -webkit-font-smoothing: antialiased;
+  background: radial-gradient(110% 90% at 0% 0%, #D3E6FA 0%, transparent 60%),
+              radial-gradient(100% 90% at 100% 100%, #D3EFE6 0%, transparent 60%), #EAF1F5;
+}
+.hide { display: none !important; }
+#win {
+  position: absolute; left: 24px; top: 22px; width: 912px; height: 556px; background: var(--bg);
+  border-radius: 14px; overflow: hidden; display: flex; flex-direction: column;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.08), 0 26px 60px -14px rgba(25,60,90,.38), 0 8px 18px -6px rgba(25,60,90,.18);
+}
+.titlebar { height: 40px; flex: none; display: flex; align-items: center; padding: 0 14px; border-bottom: 1px solid var(--line); background: #F3F1EA; position: relative; }
+.lights { display: flex; gap: 8px; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+.title { position: absolute; inset: 0; display: grid; place-items: center; font-size: 12.5px; color: var(--ink2); }
+.title b { color: var(--ink); font-weight: 600; }
+.tb-right { margin-left: auto; color: var(--ink3); letter-spacing: 2px; }
+.body { flex: 1; display: flex; min-height: 0; }
+
+/* chat */
+.chat { flex: 1; display: flex; flex-direction: column; min-width: 0; padding: 0 26px 8px; }
+.transcript { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; gap: 10px; padding: 14px 0 12px; }
+.transcript > * { flex-shrink: 0; }
+.u-bubble { align-self: flex-end; max-width: 78%; background: #EDEBE3; border-radius: 14px; padding: 8px 12px; }
+.u-bubble.cmd { font: 12.5px var(--mono); }
+.u-bubble.fixp { white-space: pre-line; max-height: 74px; overflow: hidden; -webkit-mask-image: linear-gradient(#000 62%, transparent); font-size: 12.5px; }
+.a-text { max-width: 94%; }
+code { font: 11.5px var(--mono); background: #EFEDE6; padding: 1px 4px; border-radius: 4px; }
+.tool { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink2); padding: 4px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; width: fit-content; }
+.tool .ic { color: var(--ink3); }
+.tool b { color: var(--ink); font-weight: 600; }
+.tool .p { font: 11.5px var(--mono); color: var(--ink); }
+.add { color: var(--ok); font: 11.5px var(--mono); }
+.del { color: var(--act); font: 11.5px var(--mono); }
+.work { color: var(--accent); font-size: 12.5px; display: flex; gap: 7px; align-items: center; }
+.spark { display: inline-block; font-size: 15px; }
+.sys { font-size: 12.5px; color: var(--ink2); }
+.band { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--line2); border-radius: 12px; padding: 7px 8px 7px 12px; margin-bottom: 8px; box-shadow: 0 6px 16px -8px rgba(30,60,90,.25); font-size: 12.5px; white-space: nowrap; }
+.band .cnt { color: var(--ink2); font-size: 12px; margin-right: auto; }
+.btn { font: inherit; font-size: 12px; border: 1px solid var(--line2); background: #fff; border-radius: 8px; padding: 4px 10px; color: var(--ink); white-space: nowrap; display: inline-block; }
+.btn.primary { background: #262624; color: #fff; border-color: #262624; }
+.prompt { background: #fff; border: 1px solid var(--line2); border-radius: 16px; padding: 12px 14px 10px; box-shadow: 0 2px 10px -4px rgba(0,0,0,.08); }
+.ptext { min-height: 20px; font-size: 13.5px; }
+.ptext.mono { font: 13px var(--mono); }
+.ph { color: var(--ink3); }
+.caret { display: inline-block; width: 1.5px; height: 16px; background: var(--ink); vertical-align: -3px; margin-left: 1px; }
+.pbar { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--ink2); font-size: 12px; }
+.pbtn { width: 24px; height: 24px; border: 1px solid var(--line2); border-radius: 7px; display: grid; place-items: center; }
+.model { margin-left: auto; }
+.send { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; }
+.statusline { font-size: 11.5px; color: var(--ink2); padding: 6px 4px 0; display: flex; gap: 8px; align-items: center; height: 24px; }
+.zero { background: #E3F4EE; color: #12785A; border-radius: 99px; padding: 1px 8px; font-weight: 600; }
+.shimmer { background: linear-gradient(90deg, var(--ink2) 0%, var(--ink2) 40%, #B8D6F5 50%, var(--ink2) 60%, var(--ink2) 100%); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* pane */
+.pane { width: 0; flex: none; border-left: 1px solid var(--line); background: #FDFCFA; overflow: hidden; position: relative; }
+.pane-in { width: 404px; height: 100%; display: flex; flex-direction: column; }
+.pane-tab { height: 34px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid var(--line); font-size: 12px; font-weight: 600; }
+.pane-tab .x { color: var(--ink3); font-weight: 400; font-size: 15px; }
+.pane-view { flex: 1; overflow: hidden; position: relative; }
+.pane-scroll { padding: 14px 14px 18px; }
+.layer { position: absolute; inset: 0; }
+.rp-head { display: flex; gap: 10px; }
+.rp-left { flex: 1; min-width: 0; }
+.rp-meta { font-size: 11px; color: var(--ink2); }
+.rp-title { font-size: 15.5px; font-weight: 650; margin-top: 3px; letter-spacing: -.1px; }
+.rp-sent { font-size: 12.5px; color: var(--ink2); margin-top: 3px; }
+.rp-counts { display: flex; gap: 10px; margin-top: 8px; font-size: 11.5px; color: var(--ink2); }
+.radar { flex: none; width: 92px; height: 92px; }
+.radar .dot, .radar .pulse, .grow, .pop { transform-box: fill-box; }
+.radar .dot, .radar .pulse, .pop { transform-origin: center; }
+.grow { transform-origin: 0 50%; }
+.lenses { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.lens { font-size: 11.5px; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line2); color: var(--ink2); background: #fff; }
+.lens.on { background: #262624; color: #fff; border-color: #262624; }
+.card { background: #fff; border: 1px solid var(--line); border-left: 3px solid var(--line2); border-radius: 10px; margin-top: 9px; }
+.card.act { border-left-color: var(--act); }
+.card.watch { border-left-color: var(--watch); }
+.card.fyi { border-left-color: var(--fyi); }
+.c-head { display: flex; align-items: center; gap: 7px; padding: 8px 11px; }
+.chev { color: var(--ink3); width: 12px; font-size: 13px; }
+.c-title { font-weight: 600; font-size: 12.8px; flex: 1; }
+.c-flag { font-size: 11px; color: var(--ok); font-weight: 600; }
+.c-body { padding: 0 11px; overflow: hidden; }
+.c-body.closed { height: 0; }
+.c-pad { padding-bottom: 10px; }
+.c-where { font: 10.8px var(--mono); color: var(--ink2); }
+.c-what { font-size: 12.3px; margin-top: 4px; }
+.c-lab { font-size: 10.8px; color: var(--ink2); margin: 9px 0 3px; }
+.legend { display: flex; gap: 12px; font-size: 10.8px; color: var(--ink2); }
+.legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+.chain { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; font-size: 11.3px; }
+.step { border: 1px solid var(--line2); border-radius: 99px; padding: 2px 8px; background: #fff; }
+.step.bad { background: #FCEBEA; border-color: #F4C6C5; color: #B53534; font-weight: 600; }
+.arr { color: var(--ink3); }
+.foot { font-size: 11px; color: var(--ink2); margin-top: 8px; }
+.foot b { color: var(--ink); font-weight: 600; }
+.diff { font: 10.8px/1.55 var(--mono); background: #F6F5F0; border-radius: 7px; padding: 6px 9px; margin-top: 8px; }
+.diff .a { color: #11795A; } .diff .r { color: #C03A39; }
+.btns { display: flex; gap: 5px; margin-top: 9px; flex-wrap: wrap; }
+.btns .btn { font-size: 11.3px; padding: 3px 8px; }
+.rp-foot { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--line2); font-size: 11px; color: var(--ink2); display: grid; gap: 4px; }
+.rp-foot .hl { border-radius: 6px; margin: 0 -4px; padding: 0 4px; }
+.link { color: var(--wave); margin-left: 6px; }
+.ledger-row { color: var(--ink); padding-left: 10px; }
+.skel { height: 10px; border-radius: 5px; margin-top: 10px; background: linear-gradient(90deg, #EFEDE6 0%, #EFEDE6 35%, #DCEBFA 50%, #EFEDE6 65%, #EFEDE6 100%); background-size: 300% 100%; }
+
+/* overlay */
+.toast { position: absolute; }
+.callout { position: absolute; background: #1F2A37; color: #fff; font-size: 12px; font-weight: 500; line-height: 1.45; padding: 7px 11px; border-radius: 9px; white-space: nowrap; box-shadow: 0 10px 24px -8px rgba(15,30,50,.45); }
+.callout::after { content: ""; position: absolute; width: 10px; height: 10px; background: #1F2A37; transform: rotate(45deg); }
+.callout.above::after { left: calc(50% - 5px); bottom: -4px; }
+.callout.left::after { right: -4px; top: calc(50% - 5px); }
+.callout.below::after { left: calc(50% - 5px); top: -4px; }
+#cursor { position: absolute; left: 0; top: 0; width: 22px; height: 28px; pointer-events: none; z-index: 10; opacity: 0; }
+#clickfx { position: absolute; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; border: 2px solid rgba(43,123,208,.75); opacity: 0; z-index: 9; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script>
+// ── content ──
+
+const ASK1 = 'In the inbox-service webhook, add an AI auto-reply to every incoming message that greets the contact by name.'
+const ASK4 = 'Make the auto-reply say “Hi” instead of “Hello”.'
+const FIX_PROMPT = 'Ripple 🌊 flagged this in the change we just made. Please fix it, keeping the change small and focused:\n🔴 Webhook replies before it acknowledges (reliability, cost)\nWhere: src/webhook.ts:14'
+
+const tool = (id, verb, path, add, del, hidden) =>
+  `<div class="tool${hidden ? ' hide' : ''}" id="${id}"><span class="ic">✎</span><b>${verb}</b><span class="p">${path}</span><span class="add">+${add}</span>${del ? `<span class="del">−${del}</span>` : ''}</div>`
+
+const history = `
+  <div class="u-bubble">What does the webhook do today?</div>
+  <div class="a-text">It saves each batch of inbound messages, then returns <code>200</code> so the provider doesn't retry.</div>`
+
+const run1 = h => `
+  <div class="u-bubble${h ? ' hide' : ''}" id="u1">${ASK1}</div>
+  <div class="work hide" id="w1"><span class="spark" id="sp1">✻</span> Working…</div>
+  <div class="a-text${h ? ' hide' : ''}" id="a1">I'll add a small <code>draftReply</code> helper and call it for each message in the webhook.</div>
+  ${tool('t1', 'Write', 'src/ai.ts', 21, 0, h)}
+  ${tool('t2', 'Edit', 'src/webhook.ts', 8, 1, h)}
+  ${tool('t3', 'Edit', 'package.json', 1, 0, h)}
+  <div class="a-text${h ? ' hide' : ''}" id="a2">Done. Every incoming message now gets a friendly reply that greets the contact by name.</div>`
+
+const run3 = `
+  <div class="u-bubble fixp hide" id="u3">${FIX_PROMPT}</div>
+  <div class="work hide" id="w3"><span class="spark" id="sp3">✻</span> Working…</div>
+  <div class="a-text hide" id="a3">I'll acknowledge first and send the replies from a queue worker.</div>
+  ${tool('t31', 'Edit', 'src/webhook.ts', 3, 9, true)}
+  ${tool('t32', 'Write', 'src/reply-worker.ts', 34, 0, true)}
+  <div class="a-text hide" id="a32">Done. The webhook answers 200 right after saving; a worker sends the replies.</div>`
+
+const run4 = `
+  <div class="u-bubble hide" id="u4">${ASK4}</div>
+  <div class="work hide" id="w4"><span class="spark" id="sp4">✻</span> Working…</div>
+  ${tool('t41', 'Edit', 'src/ai.ts', 1, 1, true)}
+  <div class="a-text hide" id="a4">Done. Replies now open with “Hi”.</div>
+  <div class="u-bubble cmd hide" id="u5">/ripple check</div>
+  <div class="sys hide" id="s5">🌊 Reviewing 4 uncommitted files…</div>`
+
+// Charts drawn the way hooks/charts.ts draws them.
+const stackChart = grown => {
+  const s = grown ? '' : ' style="transform:scaleX(0)"'
+  return `<svg width="350" height="50" viewBox="0 0 350 50" font-family="-apple-system, system-ui, sans-serif">
+    <clipPath id="sc"><rect x="4" y="12" width="279.3" height="16" rx="4"/></clipPath>
+    <g clip-path="url(#sc)">
+      <rect class="grow" id="g1" x="4" y="12" width="186.2" height="16" fill="#EF9F27"${s}/>
+      <rect class="grow" id="g2" x="190.2" y="12" width="23.3" height="16" fill="#378ADD"${s}/>
+      <rect class="grow" id="g3" x="213.5" y="12" width="69.8" height="16" fill="#1D9E75"${s}/>
+    </g>
+    <text id="gt" x="290" y="24.5" font-size="11.5" font-weight="600" fill="#262624"${grown ? '' : ' style="opacity:0"'}>60 s</text>
+    <line x1="50.5" y1="5" x2="50.5" y2="35" stroke="#E24B4A" stroke-width="2" stroke-dasharray="3 2"/>
+    <text id="lim" x="55" y="46" font-size="10.5" font-weight="600" fill="#E24B4A">10 s · provider timeout</text>
+  </svg>`
+}
+
+const barsChart = grown => {
+  const s = grown ? '' : ' style="transform:scaleX(0)"'
+  return `<svg width="350" height="52" viewBox="0 0 350 52" font-family="-apple-system, system-ui, sans-serif">
+    <text x="0" y="15" font-size="11.3" fill="#262624">Opus, as written</text>
+    <rect class="grow" id="b1" x="112" y="4" width="170" height="15" rx="3.5" fill="#EF9F27"${s}/>
+    <text x="288" y="15.5" font-size="11.3" font-weight="600" fill="#262624">~$47k/mo</text>
+    <text x="0" y="41" font-size="11.3" fill="#262624">Haiku</text>
+    <rect class="grow" id="b2" x="112" y="30" width="5" height="15" rx="2.5" fill="#1D9E75"${s}/>
+    <text x="123" y="41.5" font-size="11.3" font-weight="600" fill="#262624">~$1.2k/mo</text>
+  </svg>`
+}
+
+const radar = (dots, fresh) => {
+  const hidden = fresh ? ' style="transform:scale(0)"' : ''
+  const rings = [16, 30, 43].map(r => `<circle cx="48" cy="48" r="${r}" fill="none" stroke="#888780" stroke-opacity=".45" stroke-width=".8"/>`).join('')
+  const pulses = [1, 2].map(i => `<circle class="pulse" id="pr${i}" cx="48" cy="48" r="44" fill="none" stroke="#2B7BD0" stroke-width="1.6" style="transform:scale(.05);opacity:0"/>`).join('')
+  const ds = dots.map(([id, x, y, c, r, dim]) => `<circle class="dot" id="${id}" cx="${x}" cy="${y}" r="${r}" fill="${c}"${dim ? ' opacity=".35"' : ''}${hidden}/>`).join('')
+  return `<svg class="radar" viewBox="0 0 96 96">${rings}${pulses}<circle cx="48" cy="48" r="2.5" fill="#888780"/>${ds}</svg>`
+}
+
+const buttons = n => `<div class="btns">
+  <span class="btn" id="aw${n}">👀 Got it</span><span class="btn primary" id="fx${n}">🛠 Fix it</span>
+  <span class="btn">🔍 Dig deeper</span><span class="btn">🙅 Not an issue</span></div>`
+
+// The first review: three findings from the auto-reply change.
+const review1 = (fresh, decided = false) => `
+  <div class="rp-head">
+    <div class="rp-left">
+      <div class="rp-meta">🌊 Ripple · smart</div>
+      <div class="rp-title" id="rt">${decided ? 2 : 3} ripples from your last change</div>
+      <div class="rp-sent">Every inbound message now costs an AI call, a lookup and a paid send before the provider gets its OK.</div>
+      <div class="rp-counts" id="rc">🔴 1 act <span id="rcw"${decided ? ' class="hide"' : ''}>🟠 1 watch</span> 🔵 1 fyi</div>
+    </div>
+    ${radar([['d1', 48, 64, '#E24B4A', 5], ['d2', 48, 18, '#EF9F27', 4.5, decided], ['d3', 10.8, 69.5, '#378ADD', 4.5]], fresh)}
+  </div>
+  <div class="lenses"><span class="lens on">All 3</span><span class="lens">💸 Cost 2</span><span class="lens">🛟 Reliability 1</span><span class="lens">🔒 Security 1</span></div>
+  <div class="card act" id="c1">
+    <div class="c-head" id="h1"><span class="chev" id="ch1">▾</span><span class="c-title">Webhook replies before it acknowledges</span><span class="c-flag hide" id="fl1">🛠 fixing</span></div>
+    <div class="c-body" id="c1b"><div class="c-pad">
+      <div class="c-where">src/webhook.ts:14 · 🛟 💸</div>
+      <div class="c-what">A 50-message batch now takes about a minute; the provider gives up at 10 s.</div>
+      <div class="c-lab">Seconds before the provider gets its OK</div>
+      ${stackChart(!fresh)}
+      <div class="legend"><span><i style="background:#EF9F27"></i>AI replies 40 s</span><span><i style="background:#378ADD"></i>lookups 5 s</span><span><i style="background:#1D9E75"></i>sends 15 s</span></div>
+      <div class="c-lab">Then</div>
+      <div class="chain">
+        <span class="step pop" id="k1"${fresh ? ' style="opacity:0"' : ''}>Provider retries</span><span class="arr pop" id="k1a"${fresh ? ' style="opacity:0"' : ''}>→</span>
+        <span class="step pop" id="k2"${fresh ? ' style="opacity:0"' : ''}>Batch runs again</span><span class="arr pop" id="k2a"${fresh ? ' style="opacity:0"' : ''}>→</span>
+        <span class="step bad pop" id="k3"${fresh ? ' style="opacity:0"' : ''}>Duplicate replies, 2x cost</span>
+      </div>
+      <div class="foot">Bites at <b>batches over ~8 messages</b> · Save by <b>acknowledge first, reply from a queue</b></div>
+      <div class="diff"><div class="a">+ res.sendStatus(200)</div><div class="a">+ await queue.send(messages)</div><div class="r">- for (const message of messages) {</div></div>
+      ${buttons(1)}
+    </div></div>
+  </div>
+  <div class="card watch" id="c2">
+    <div class="c-head" id="h2"><span class="chev" id="ch2">▸</span><span class="c-title" id="ct2"${decided ? ' style="opacity:.55"' : ''}>One Opus call per inbound message</span><span class="c-flag${decided ? '' : ' hide'}" id="fl2">✓ aware</span></div>
+    <div class="c-body closed" id="c2b"><div class="c-pad">
+      <div class="c-where">src/ai.ts:9 · 💸</div>
+      <div class="c-what">AI spend grows one-for-one with message volume.</div>
+      <div class="c-lab">Monthly cost at 10 msg/s</div>
+      ${barsChart(false)}
+      <div class="foot">Bites at <b>any real traffic</b> · Save by <b>Haiku, one reply per conversation</b></div>
+      ${buttons(2)}
+    </div></div>
+  </div>
+  <div class="card fyi" id="c3">
+    <div class="c-head"><span class="chev">▸</span><span class="c-title">Customer messages written to logs</span></div>
+  </div>
+  <div class="rp-foot">
+    <div>This review: 900 in · 1.2k cached · 300 out · ~$0.005 · sonnet</div>
+    <div class="hl" id="awl">📒 Team aware: <b id="awn">${decided ? 1 : 0}</b> · not an issue: 0 <span class="link" id="lshow">show</span></div>
+    <div class="ledger-row hide" id="lrow">👀 One Opus call per inbound message <span class="link">forget</span></div>
+    <div>📏 Scale: ~40 msg/s at peak, 1.5M contacts, Postgres on RDS</div>
+  </div>`
+
+const calm = `
+  <div class="rp-head">
+    <div class="rp-left">
+      <div class="rp-meta">🌊 Ripple · smart</div>
+      <div class="rp-title">Calm waters</div>
+      <div class="rp-sent">The webhook now answers in well under a second, and replies go through a worker.</div>
+    </div>
+    ${radar([], false)}
+  </div>
+  <div class="rp-foot" style="margin-top:56px">
+    <div>This review: 640 in · 1.2k cached · 120 out · ~$0.003 · sonnet</div>
+    <div>📒 Team aware: 1 · not an issue: 0 <span class="link">show</span></div>
+    <div>📏 Scale: ~40 msg/s at peak, 1.5M contacts, Postgres on RDS</div>
+  </div>`
+
+const reviewing = `
+  <div class="rp-head">
+    <div class="rp-left">
+      <div class="rp-meta">🌊 Ripple · smart</div>
+      <div class="rp-title shimmer" id="rvt">Reviewing 4 files…</div>
+      <div class="skel" id="sk1" style="width:92%"></div><div class="skel" id="sk2" style="width:70%"></div><div class="skel" id="sk3" style="width:80%"></div>
+    </div>
+    ${radar([], false)}
+  </div>`
+
+const review2 = `
+  <div class="rp-head">
+    <div class="rp-left">
+      <div class="rp-meta">🌊 Ripple · smart</div>
+      <div class="rp-title">2 ripples in your uncommitted changes</div>
+      <div class="rp-sent">Replies now go through a worker. It needs a retry limit before the first outage.</div>
+      <div class="rp-counts">🟠 1 watch 🔵 1 fyi</div>
+    </div>
+    ${radar([['e1', 33.1, 74, '#EF9F27', 4.5], ['e2', 10.8, 26.5, '#378ADD', 4.5]], true)}
+  </div>
+  <div class="card watch">
+    <div class="c-head"><span class="chev">▾</span><span class="c-title">Reply worker retries forever</span></div>
+    <div class="c-body"><div class="c-pad">
+      <div class="c-where">src/reply-worker.ts:21 · 🛟 💸</div>
+      <div class="c-what">A failing send is retried with no limit and no backoff.</div>
+      <div class="c-lab">Then</div>
+      <div class="chain">
+        <span class="step pop" id="q1" style="opacity:0">Provider outage</span><span class="arr pop" id="q1a" style="opacity:0">→</span>
+        <span class="step pop" id="q2" style="opacity:0">Queue backs up</span><span class="arr pop" id="q2a" style="opacity:0">→</span>
+        <span class="step bad pop" id="q3" style="opacity:0">Paid sends repeat</span>
+      </div>
+      <div class="foot">Bites at <b>the first provider outage</b> · Save by <b>5 retries with backoff</b></div>
+      <div class="diff"><div class="a">+ maxRetries: 5,</div><div class="a">+ backoff: 'exponential',</div></div>
+      ${buttons(4)}
+    </div></div>
+  </div>
+  <div class="card fyi">
+    <div class="c-head"><span class="chev">▸</span><span class="c-title">New dependency: @anthropic-ai/sdk</span></div>
+  </div>
+  <div class="rp-foot">
+    <div class="hl" id="cost">This review: 2.1k in · 1.4k cached · 410 out · ~$0.009 · sonnet</div>
+    <div>📒 Team aware: 1 · not an issue: 0 <span class="link">show</span></div>
+  </div>`
+
+function shell({ transcript, pane = '', paneOpen = false, status = '🌊 watching', callouts = [] }) {
+  return `
+  <div id="win">
+    <div class="titlebar">
+      <div class="lights"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i></div>
+      <div class="title"><span><b>Add AI auto-reply</b> · inbox-service</span></div>
+      <div class="tb-right">•••</div>
+    </div>
+    <div class="body">
+      <main class="chat">
+        <div class="transcript">${transcript}</div>
+        <div class="band hide" id="band">
+          <span>🌊 <b>3 ripples</b> from your last change</span>
+          <span class="cnt">🔴 1 act 🟠 1 watch 🔵 1 fyi</span>
+          <span class="btn primary" id="show">Show me</span><span class="btn">Later</span>
+        </div>
+        <div class="prompt">
+          <div class="ptext" id="pt"><span id="typed"></span><span class="caret hide" id="caret"></span><span class="ph" id="ph">Ask Claude to build, fix or explain…</span></div>
+          <div class="pbar"><span class="pbtn">+</span><span class="model">Opus 5.5</span><span class="send" id="send">↑</span></div>
+        </div>
+        <div class="statusline"><span id="st">${status}</span><span class="zero hide" id="zero">0 tokens</span></div>
+      </main>
+      <aside class="pane" id="pane"${paneOpen ? ' style="width:404px"' : ''}><div class="pane-in">
+        <div class="pane-tab"><span>🌊 Ripple</span><span class="x">×</span></div>
+        <div class="pane-view">${pane}</div>
+      </div></aside>
+    </div>
+  </div>
+  ${callouts.map(([id, text, side]) => `<div class="callout ${side} hide" id="${id}">${text}</div>`).join('')}
+  <div id="clickfx"></div>
+  <div id="cursor"><svg width="22" height="28" viewBox="0 0 22 28"><path d="M3 2 L3 22 L8 17.5 L11.5 25 L14.8 23.6 L11.4 16.2 L18 16.2 Z" fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></div>`
+}
+
+// ── timeline ──
+
+const ease = {
+  lin: p => p,
+  io: p => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2),
+  out: p => 1 - Math.pow(1 - p, 3),
+  back: p => 1 + 2.70158 * Math.pow(p - 1, 3) + 1.70158 * Math.pow(p - 1, 2),
+}
+const tracks = []
+const moves = []
+const texts = new Map()
+let saved = []
+const $ = sel => document.querySelector(sel)
+
+function at(t0, dur, fn, e = ease.out) { tracks.push({ t0, dur, fn, e }) }
+function setText(sel, text) {
+  const el = $(sel)
+  if (!texts.has(el)) texts.set(el, el.innerHTML)
+  el.innerHTML = text
+}
+const show = (sel, t0, dur = 0.35, dy = 6) => at(t0, dur, p => {
+  const el = $(sel)
+  el.classList.remove('hide')
+  el.style.opacity = p
+  el.style.transform = `translateY(${(1 - p) * dy}px)`
+})
+const hide = (sel, t0, dur = 0.25) => at(t0, dur, (p, raw) => {
+  const el = $(sel)
+  el.style.opacity = 1 - p
+  if (raw >= 1) el.classList.add('hide')
+})
+const swap = (sel, t, text) => at(t, 0, () => setText(sel, text))
+const pop = (sel, t0, dur = 0.4) => at(t0, dur, p => {
+  const el = $(sel)
+  el.style.opacity = Math.min(1, p * 2)
+  el.style.transform = `scale(${p})`
+}, ease.back)
+const grow = (sel, t0, dur) => at(t0, dur, p => { $(sel).style.transform = `scaleX(${p})` }, ease.io)
+const fade = (sel, t0, dur, from, to) => at(t0, dur, p => { $(sel).style.opacity = from + (to - from) * p })
+const scroll = (sel, t0, dur, from, to) => at(t0, dur, p => { $(sel).style.transform = `translateY(${-(from + (to - from) * p)}px)` }, ease.io)
+const paneWidth = (t0, dur, from, to) => at(t0, dur, p => { $('#pane').style.width = `${from + (to - from) * p}px` }, ease.io)
+const expand = (sel, t0, dur = 0.4) => at(t0, dur, (p, raw) => {
+  const el = $(sel)
+  el.classList.remove('closed')
+  el.style.height = raw >= 1 ? '' : `${el.scrollHeight * p}px`
+}, ease.io)
+const collapse = (sel, t0, dur = 0.35) => at(t0, dur, p => {
+  const el = $(sel)
+  el.style.height = `${el.scrollHeight * (1 - p)}px`
+}, ease.io)
+const typeText = (text, t0, cps, mono = false) => {
+  const end = t0 + text.length / cps
+  at(t0, end - t0, (p, raw, t) => {
+    const n = Math.min(text.length, Math.floor((t - t0) * cps))
+    setText('#typed', text.slice(0, n).replace(/</g, '&lt;'))
+    $('#ph').classList.add('hide')
+    $('#caret').classList.remove('hide')
+    $('#caret').style.opacity = raw >= 1 && Math.floor(t * 2.2) % 2 ? 0 : 1
+    if (mono) $('#pt').classList.add('mono')
+  }, ease.lin)
+  return end
+}
+const send = t => {
+  press('#send', t)
+  at(t + 0.12, 0, () => {
+    setText('#typed', '')
+    $('#caret').classList.add('hide')
+    $('#ph').classList.remove('hide')
+    $('#pt').classList.remove('mono')
+  })
+}
+const spin = (sel, t0, t1) => at(t0, t1 - t0, (p, raw, t) => { $(sel).style.transform = `rotate(${t * 220}deg)` }, ease.lin)
+const shimmer = (sel, t0, t1) => at(t0, t1 - t0, (p, raw, t) => {
+  const el = $(sel).querySelector('.sh') ?? $(sel)
+  el.classList.add('shimmer')
+  el.style.backgroundPosition = `${100 - ((t * 70) % 200)}% 0`
+  if (raw >= 1) el.classList.remove('shimmer')
+}, ease.lin)
+const sweep = (sels, t0, t1) => at(t0, t1 - t0, (p, raw, t) => {
+  for (const s of sels) $(s).style.backgroundPosition = `${100 - ((t * 70) % 200)}% 0`
+}, ease.lin)
+const flash = (sel, t0, dur = 1.2) => at(t0, dur, p => {
+  $(sel).style.background = `rgba(255, 214, 102, ${0.55 * Math.sin(Math.PI * p)})`
+}, ease.lin)
+const ripple = (t0) => {
+  for (const [i, delay] of [[1, 0], [2, 0.35]]) at(t0 + delay, 1.2, p => {
+    const el = $(`#pr${i}`)
+    el.style.transform = `scale(${0.05 + p * 0.95})`
+    el.style.opacity = (1 - p) * 0.9
+  })
+}
+const callout = (id, sel, side, t0, t1) => {
+  at(t0, t1 - t0, (p, raw, t) => {
+    const el = $(`#${id}`)
+    if (raw >= 1) return
+    el.classList.remove('hide')
+    const r = $(sel).getBoundingClientRect()
+    const fadeIn = Math.min(1, (t - t0) / 0.3)
+    const fadeOut = Math.min(1, (t1 - t) / 0.3)
+    el.style.opacity = Math.min(fadeIn, fadeOut)
+    const lift = (1 - ease.out(fadeIn)) * 6
+    if (side === 'above') {
+      el.style.left = `${r.left + r.width / 2 - el.offsetWidth / 2}px`
+      el.style.top = `${r.top - el.offsetHeight - 10 + lift}px`
+    } else if (side === 'below') {
+      el.style.left = `${r.left + r.width / 2 - el.offsetWidth / 2}px`
+      el.style.top = `${r.bottom + 10 - lift}px`
+    } else {
+      el.style.left = `${r.left - el.offsetWidth - 12 - lift}px`
+      el.style.top = `${r.top + r.height / 2 - el.offsetHeight / 2}px`
+    }
+  }, ease.lin)
+}
+
+// The cursor glides between targets; a target is a selector or a point.
+const moveTo = (t, dur, to, dx = 0, dy = 0) => moves.push({ t, dur, to, dx, dy })
+function point(m) {
+  if (Array.isArray(m.to)) return m.to
+  const r = $(m.to).getBoundingClientRect()
+  return [r.left + r.width / 2 + m.dx, r.top + r.height / 2 + m.dy]
+}
+function press(sel, t) {
+  at(t, 0.22, (p, raw) => {
+    const el = $(sel)
+    if (raw >= 1) return
+    el.style.transform = `scale(${1 - 0.06 * Math.sin(Math.PI * p)})`
+    el.style.filter = `brightness(${1 - 0.12 * Math.sin(Math.PI * p)})`
+  }, ease.lin)
+}
+const clicks = []
+function click(t, sel) { clicks.push(t); if (sel) press(sel, t) }
+let cursorFrom = null
+let cursorShownAt = Infinity
+
+function placeCursor(t) {
+  const c = $('#cursor')
+  if (t < cursorShownAt) { c.style.opacity = 0; return }
+  let pos = cursorFrom
+  for (const m of moves) {
+    if (t < m.t) break
+    const target = point(m)
+    if (pos === null || t >= m.t + m.dur) { pos = target; continue }
+    const p = ease.io((t - m.t) / m.dur)
+    pos = [pos[0] + (target[0] - pos[0]) * p, pos[1] + (target[1] - pos[1]) * p]
+    break
+  }
+  if (pos === null) return
+  c.style.opacity = Math.min(1, (t - cursorShownAt) / 0.25)
+  c.style.transform = `translate(${pos[0] - 3}px, ${pos[1] - 2}px)`
+  const fx = $('#clickfx')
+  fx.style.opacity = 0
+  for (const ct of clicks) {
+    if (t >= ct && t < ct + 0.45) {
+      const p = (t - ct) / 0.45
+      fx.style.left = `${pos[0]}px`
+      fx.style.top = `${pos[1]}px`
+      fx.style.opacity = 1 - p
+      fx.style.transform = `scale(${0.3 + p * 1.1})`
+    }
+  }
+}
+
+function snapshot() {
+  saved = [...document.querySelectorAll('#stage *')].map(el => [el, el.getAttribute('style'), el.getAttribute('class')])
+}
+function restore() {
+  for (const [el, html] of texts) el.innerHTML = html
+  texts.clear()
+  for (const [el, style, cls] of saved) {
+    if (style === null) el.removeAttribute('style'); else el.setAttribute('style', style)
+    if (cls === null) el.removeAttribute('class'); else el.setAttribute('class', cls)
+  }
+}
+function seek(t) {
+  restore()
+  for (const k of tracks) {
+    if (t < k.t0) continue
+    const raw = k.dur > 0 ? Math.min(1, (t - k.t0) / k.dur) : 1
+    k.fn(k.e(raw), raw, t)
+  }
+  placeCursor(t)
+}
+
+// ── scenes ──
+
+const scenes = {
+  // 1. Claude makes a change; Ripple speaks up when the turn ends.
+  catch() {
+    $('#stage').innerHTML = shell({
+      transcript: history + run1(true),
+      pane: `<div class="pane-scroll" id="ps">${review1(true)}</div>`,
+    })
+    const typed = typeText(ASK1, 0.5, 40)
+    send(typed + 0.3)
+    show('#u1', typed + 0.42)
+    show('#w1', typed + 0.75); spin('#sp1', typed + 0.75, 6.6)
+    show('#a1', 4.6)
+    show('#t1', 5.0); swap('#st', 5.0, '🌊 noting · 1 file')
+    show('#t2', 5.45); swap('#st', 5.45, '🌊 noting · 2 files · 2 hints')
+    show('#t3', 5.85); swap('#st', 5.85, '🌊 noting · 3 files · 3 hints')
+    hide('#w1', 6.35, 0.15)
+    show('#a2', 6.5)
+    swap('#st', 6.8, '🌊💭 <span class="sh">reviewing 3 files…</span>'); shimmer('#st', 6.8, 8.1)
+    show('#band', 8.1, 0.45, 14); swap('#st', 8.1, '🌊 3 ripples · /ripple')
+    cursorShownAt = 8.3; cursorFrom = [640, 330]
+    moveTo(8.35, 0.8, '#show', 4, 3)
+    click(9.3, '#show')
+    paneWidth(9.5, 0.6, 0, 404)
+    hide('#band', 9.5, 0.2)
+    moveTo(9.6, 1.0, [470, 380])
+    ripple(10.1)
+    pop('#d1', 10.3); pop('#d2', 10.5); pop('#d3', 10.7)
+    grow('#g1', 10.7, 1.0); flash('#lim', 10.85, 0.9); grow('#g2', 11.7, 0.25); grow('#g3', 11.95, 0.5)
+    fade('#gt', 12.4, 0.3, 0, 1)
+    pop('#k1', 12.6); pop('#k1a', 12.8); pop('#k2', 12.9); pop('#k2a', 13.1); pop('#k3', 13.2)
+    scroll('#ps', 14.0, 1.0, 0, 196)
+    return 17.0
+  },
+
+  // 2. One click to say "we know"; the team's ledger remembers.
+  decide() {
+    $('#stage').innerHTML = shell({
+      transcript: history + run1(false),
+      pane: `<div class="pane-scroll" id="ps">${review1(false)}</div>`,
+      paneOpen: true,
+      status: '🌊 3 ripples · /ripple',
+      callouts: [['co1', 'Saved in <b>.ripple/ledger.json</b>.<br>Commit it, and teammates won’t be asked again.', 'left']],
+    })
+    cursorShownAt = 0.3; cursorFrom = [600, 300]
+    moveTo(0.4, 0.8, '#h1', -60, 0)
+    click(1.3, '#h1'); collapse('#c1b', 1.35); swap('#ch1', 1.35, '▸')
+    moveTo(1.7, 0.6, '#h2', -60, 0)
+    click(2.4, '#h2'); expand('#c2b', 2.45); swap('#ch2', 2.45, '▾')
+    grow('#b1', 2.95, 0.9); grow('#b2', 3.3, 0.4)
+    moveTo(4.0, 0.7, '#aw2')
+    click(4.8, '#aw2')
+    collapse('#c2b', 4.95); swap('#ch2', 4.95, '▸')
+    show('#fl2', 4.95, 0.3, 0); fade('#ct2', 4.95, 0.3, 1, 0.55)
+    swap('#rt', 4.95, '2 ripples from your last change'); hide('#rcw', 4.95, 0.2)
+    fade('#d2', 4.95, 0.4, 1, 0.35)
+    swap('#st', 4.95, '🌊 2 ripples · /ripple')
+    swap('#awn', 4.95, '1'); flash('#awl', 5.0, 1.3)
+    moveTo(5.6, 0.7, '#lshow')
+    click(6.4, '#lshow'); show('#lrow', 6.5, 0.35, 4); swap('#lshow', 6.5, 'hide')
+    moveTo(6.9, 0.6, [880, 300])
+    callout('co1', '#lrow', 'left', 7.0, 11.4)
+    return 12.0
+  },
+
+  // 3. Hand the fix to Claude. The fix is reviewed too.
+  fix() {
+    $('#stage').innerHTML = shell({
+      transcript: history + run1(false) + run3,
+      pane: `<div class="pane-scroll layer" id="ps">${review1(false, true)}</div>
+             <div class="pane-scroll layer hide" id="pv">${reviewing}</div>
+             <div class="pane-scroll layer hide" id="pc">${calm}</div>`,
+      paneOpen: true,
+      status: '🌊 2 ripples · /ripple',
+      callouts: [['co2', '✓ The fix was reviewed too', 'below']],
+    })
+    $('#ps').style.transform = 'translateY(-118px)'
+    snapshot()
+    cursorShownAt = 0.3; cursorFrom = [640, 260]
+    moveTo(0.4, 0.9, '#fx1')
+    click(1.5, '#fx1')
+    show('#fl1', 1.65, 0.3, 0); swap('#st', 1.65, '🌊 1 ripple · /ripple')
+    show('#u3', 1.9)
+    moveTo(2.0, 0.8, [520, 470])
+    show('#w3', 2.3); spin('#sp3', 2.3, 4.6)
+    show('#a3', 2.8)
+    show('#t31', 3.3); show('#t32', 3.8)
+    hide('#w3', 4.4, 0.15)
+    show('#a32', 4.5)
+    swap('#st', 4.8, '🌊💭 <span class="sh">reviewing 2 files…</span>'); shimmer('#st', 4.8, 6.8)
+    fade('#ps', 4.8, 0.3, 1, 0); show('#pv', 4.9, 0.3, 0)
+    swap('#rvt', 4.9, 'Reviewing 2 files…'); sweep(['#rvt', '#sk1', '#sk2', '#sk3'], 4.9, 6.8)
+    hide('#pv', 6.8, 0.2); show('#pc', 6.9, 0.4, 6)
+    swap('#st', 6.9, '🌊 calm')
+    ripple(7.1); ripple(8.5)
+    callout('co2', '#pc .rp-sent', 'below', 7.6, 11.2)
+    return 12.0
+  },
+
+  // 4. Small edits cost nothing; /ripple check reviews everything on demand.
+  quiet() {
+    $('#stage').innerHTML = shell({
+      transcript: history + run1(false) + run4,
+      pane: `<div class="pane-scroll layer" id="pv">${reviewing}</div>
+             <div class="pane-scroll layer hide" id="pr">${review2}</div>`,
+      status: '🌊 watching',
+      callouts: [
+        ['co3', 'Small, safe edit: no review, <b>0 tokens</b>', 'above'],
+        ['co4', 'Every review shows what it cost', 'left'],
+      ],
+    })
+    const typed = typeText(ASK4, 0.4, 40)
+    send(typed + 0.3)
+    show('#u4', typed + 0.42)
+    show('#w4', typed + 0.7); spin('#sp4', typed + 0.7, 3.4)
+    show('#t41', 2.9); swap('#st', 2.9, '🌊 noting · 1 file')
+    hide('#w4', 3.4, 0.15); show('#a4', 3.5)
+    swap('#st', 3.8, '🌊 calm'); show('#zero', 3.9, 0.3, 0)
+    callout('co3', '#zero', 'above', 4.1, 6.6)
+    const typed2 = typeText('/ripple check', 6.9, 18, true)
+    send(typed2 + 0.35)
+    show('#u5', typed2 + 0.47); show('#s5', typed2 + 0.75)
+    hide('#zero', typed2 + 0.75, 0.2)
+    swap('#st', typed2 + 0.75, '🌊💭 <span class="sh">reviewing 4 files…</span>'); shimmer('#st', typed2 + 0.75, 10.6)
+    paneWidth(typed2 + 0.8, 0.6, 0, 404)
+    sweep(['#rvt', '#sk1', '#sk2', '#sk3'], typed2 + 0.8, 10.6)
+    hide('#pv', 10.6, 0.2); show('#pr', 10.7, 0.4, 6)
+    swap('#st', 10.7, '🌊 2 ripples · /ripple')
+    ripple(10.8); pop('#e1', 11.0); pop('#e2', 11.2)
+    pop('#q1', 11.5); pop('#q1a', 11.7); pop('#q2', 11.8); pop('#q2a', 12.0); pop('#q3', 12.1)
+    scroll('#pr', 12.6, 0.9, 0, 72)
+    flash('#cost', 13.5, 1.6)
+    callout('co4', '#cost', 'left', 13.6, 16.4)
+    return 17.0
+  },
+}
+
+const name = new URLSearchParams(location.search).get('scene') || 'catch'
+window.SCENE_DURATION = scenes[name]()
+if (saved.length === 0) snapshot()
+tracks.sort((a, b) => a.t0 - b.t0)
+window.seek = seek
+seek(0)
+
+if (!new URLSearchParams(location.search).has('capture')) {
+  const start = performance.now()
+  const loop = now => {
+    seek(((now - start) / 1000) % window.SCENE_DURATION)
+    requestAnimationFrame(loop)
+  }
+  requestAnimationFrame(loop)
+}
+</script>
+</body>
+</html>
